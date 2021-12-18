@@ -1,0 +1,777 @@
+## SIMULADOR DE CRONOGRAMA BANCARIO PARA CUOTAS IGUALES---DE: YAMIL AROSQUIPA NAVARRO---
+## CON OPCIÓN DE EXPORTAR A PDF
+from tkinter import *
+import tkinter as tk
+from tkinter.messagebox import *
+from tkcalendar import Calendar,DateEntry
+import datetime
+import dateutil.relativedelta
+import sqlite3
+import itertools
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+
+e=[7] 
+def exportarPDF():
+            global e
+            e[0]=1
+
+#PANTALLA PRINCIPAL
+def pantalla1_principal():
+    pant=tk.Tk()
+    pant.title("SIMULADOR BANCARIO")
+    pant.geometry("400x400+650+100")   
+   
+    #ERRORES 
+    def definir_pantalla(): 
+        #ERROR
+        if prod_tipo.get()=="" and moneda_tipo.get()=="":
+            mensaje_tipo_moneda_prod()
+        if prod_tipo.get()!="" and moneda_tipo.get()=="":
+            mensaje_tipo_moneda()
+        if prod_tipo.get()=="" and moneda_tipo.get()!="":
+            mensaje_tipo_prod()
+                    
+        #MANDAR A PANTALLA SEGÚN TIPO
+        if prod_tipo.get()=="EFECTIVO" and moneda_tipo.get()!="":
+            pantalla2()
+        if prod_tipo.get()=="HIPOTECARIO" and moneda_tipo.get()!="":
+            pantalla3()
+        if prod_tipo.get()=="VEHÍCULO (MUEBLE)" and moneda_tipo.get()!="":
+           pantalla4()
+ 
+        
+    #MENSAJES 
+    def mensaje_tipo_moneda_prod():
+        messagebox.showinfo('ERROR', 'ELIGA UN TIPO DE MONEDA Y PRODUCTO')
+    def mensaje_tipo_moneda():
+        messagebox.showinfo('ERROR', 'ELIGA UN TIPO DE MONEDA')
+    def mensaje_tipo_prod():
+        messagebox.showinfo('ERROR', 'ELIGA UN TIPO DE PRODUCTO')
+      
+    #PANTALLA 2 EFECTIVO
+    def pantalla2():
+        
+        #CERRAR
+        def cerrar_pantalla2():
+            pant2.destroy()
+        
+        def pantalla_raiz():
+            pant2.destroy()
+            pantalla1_principal()
+        
+        pant.destroy()
+    
+        pant2=tk.Tk()
+        pant2.title("SIMULADOR DE PRÉSTAMO EN EFECTIVO")
+        pant2.geometry("700x650+500+5")
+        
+        tk.Label(text ="SIMULADOR DE PRÉSTAMO EN EFECTIVO",font = ('Arial',12)).grid(column=0,row=3,sticky=W,pady=10, padx= 20)
+        data = [("Nro","FECHA", "SALDO INI.","AMORT.","INTERÉS", "CUOTA","SALDO FIN.")]
+        
+        #CRONOGRAMA
+        def cronograma_efec():
+            tea_Mueble= 0.5 
+            tea_M_M= ((1+(tea_Mueble/1))**(1/12))-1
+            tea_M_S= ((1+(tea_M_M/1))**(1/4))-1
+        
+            cuota_Const1=[]
+            cuota_2decimales=cuota_Const1
+            
+            
+            #CUOTA
+            cuota_Const1.clear()
+            if tipo_periodo.get()=="MENSUAL":
+                tea_escogida=tea_M_M
+                cuota_Const= float(monto1.get())*((((1 + tea_M_M)**float(num_cuotas.get()))*tea_M_M)
+                                                / (((1 + tea_M_M)**float(num_cuotas.get())) - 1))
+                cuota_Const1.append(cuota_Const)
+                cuot = tk.Label(frame4, text ='CUOTA DE PAGO').grid(column=0, row=16,sticky=W,pady=3, padx= 20)
+                cuot = tk.Label(frame4, text =round(cuota_Const,2)).grid(column=1, row=16,sticky=W,pady=3, padx= 20)
+                d1=0
+                
+            if tipo_periodo.get()!="MENSUAL":
+                tea_escogida=tea_M_S
+                cuota_Const= float(monto1.get())*((((1 + tea_M_S)**float(num_cuotas.get()))*tea_M_S)
+                                                / (((1 + tea_M_S)**float(num_cuotas.get())) - 1))
+                cuota_Const1.append(cuota_Const)
+                cuot = tk.Label(frame4, text ='CUOTA DE PAGO').grid(column=0, row=16,sticky=W,pady=3, padx= 20)
+                cuot = tk.Label(frame4, text = round(cuota_Const,2)).grid(column=1, row=16,sticky=W,pady=3, padx= 20)
+                d1=1
+            #CRONOGRAMA
+            long= int(num_cuotas.get()) #MÁXIMO 15 POR EL TAMAÑO DE LA INTERFAZ
+            cuota_2decimales=round(cuota_Const1[0],2)
+            
+            cuota_num= round(cuota_Const1[0],50)
+            saldoini= float(monto1.get())
+        
+            tabla = ttk.Treeview(frame5,columns=("FECHA", "SALDO1","AMORTIZACIÓN","INTERÉS", "CUOTA","SALDO2"),height =15)
+           
+            for i in range(long):
+                
+                interes1= round(tea_escogida * saldoini,4) 
+                
+                amort= round(cuota_num - interes1,2)
+                
+                if d1==0:
+                    d = datetime.datetime.strptime(fecha.get( ),"%m/%d/%y")
+                    d2 = d + dateutil.relativedelta.relativedelta(months=i+1)
+                if d1==1:
+                    d = datetime.datetime.strptime(fecha.get( ),"%m/%d/%y")
+                    d2 = d + dateutil.relativedelta.relativedelta(weeks=i+1)
+                
+                saldofin= round(saldoini - amort,0)
+                
+                tabla.insert("",END, text=i+1,values=(d2,saldoini,amort,interes1,cuota_2decimales,saldofin))
+                
+                ######
+                def grouper(iterable, n):
+                    args = [iter(iterable)] * n
+                    return itertools.zip_longest(*args)
+                def export_to_pdf(data):
+                    c = canvas.Canvas("REPORTE_SIMULADOR.pdf", pagesize=A4)
+                    w, h = A4
+                    max_rows_per_page = 45
+                    # Margin.
+                    x_offset = 40
+                    y_offset = 145
+                    # Space between rows.
+                    padding = 15
+                    
+                    xlist = [x + x_offset for x in [0,30,150,230,310,390,460,530]]
+                    ylist = [h - y_offset - i*padding for i in range(max_rows_per_page + 1)]
+                    
+                    x = datetime.datetime.now()
+                    y=x.strftime("%x")
+                    z=x.strftime("%X")
+                    for rows in grouper(data, max_rows_per_page):
+                        c.drawString(40, h - 20, f"{y} {z}")
+                        c.drawString(240, h - 30, "BANCO CONFINAZA")
+                        c.drawString(120, h - 45, "El banco en donde el bolsillo de nuestros clientes es lo más importante")
+                        c.drawString(200, h - 70, "CRONOGRAMA DE CUOTAS DE PAGO")
+                        c.drawString(40, h - 90, "Tipo de Crédito")
+                        c.drawString(140, h - 90, ": Crédito Efectivo")
+                        c.drawString(40, h - 105, "Tipo de Cuota")
+                        c.drawString(140, h - 105, ": Cuotas iguales")
+                        c.drawString(40, h - 120, "Monto")
+                        c.drawString(140, h - 120, f": {monto1.get()}")
+                        c.drawString(40, h - 135, "Cuota por periodo")
+                        c.drawString(140, h - 135, f": {cuota_2decimales}")
+                        rows = tuple(filter(bool, rows))
+                        c.grid(xlist, ylist[:len(rows) + 1])
+                        for y, row in zip(ylist[:-1], rows):
+                            for x, cell in zip(xlist, row):
+                                c.drawString(x + 2, y - padding + 3, str(cell))    
+                        c.showPage()
+                    
+                    c.save()
+                    
+                data.append((i+1,d2,saldoini,amort,interes1,cuota_2decimales,saldofin)) ## INSERTA A TABLA PDF
+                     
+                saldoini= round(saldoini-amort, 2)
+                                   
+            tabla.heading("#0",text="Nro")
+            tabla.column("#0",width=60) 
+            tabla.heading("FECHA",text="FECHA")#2
+            tabla.column("FECHA",width=68)
+            tabla.heading("SALDO1",text="SALDO INICIAL")#3
+            tabla.column("SALDO1",width=100)
+            tabla.heading("AMORTIZACIÓN",text="AMORTIZACIÓN")#4
+            tabla.column("AMORTIZACIÓN",width=100)
+            tabla.heading("INTERÉS",text="INTERÉS")#5
+            tabla.column("INTERÉS",width=100)
+            tabla.heading("CUOTA",text="CUOTA")#6
+            tabla.column("CUOTA",width=100)
+            tabla.heading("SALDO2",text="SALDO FINAL")#7
+            tabla.column("SALDO2",width=100)
+            
+            tabla.grid(column=0, row=16, sticky=W,pady=3, padx=40)
+            
+            if e[0]==1:
+                export_to_pdf(data)
+            else:
+                pass
+            e[0]=8
+          
+            data.clear()
+            data.append(("Nro","FECHA", "SALDO INI.","AMORT.","INTERÉS", "CUOTA","SALDO FIN."))
+         
+        #ETIQUETAS
+        frame4 = Frame(pant2)
+        frame4.grid(column=0, row=6, sticky=W)
+        
+        #MONTO 
+        monto = tk.Label(frame4, text ='MONTO').grid(column=0, row=6,sticky=W,pady=3, padx= 20)
+    
+        monto1= tk.DoubleVar()
+        monto1= tk.Entry(frame4,width=15)
+        monto1.grid(column=1, row=6,sticky=W,pady=3, padx=0)
+        
+        #PERIODO
+        periodo= tk.Label(frame4, text ="PERIODO DE PAGO").grid(column=0,row=8,sticky=W,pady=3, padx= 20)
+        
+        periodo1= tk.StringVar()
+        tipo_periodo= ttk.Combobox(frame4,width=12, textvariable= periodo1)
+        tipo_periodo['values'] = ("MENSUAL", "SEMANAL")
+        tipo_periodo.grid(column=1, row=8,sticky=W,pady=3, padx= 0)
+        
+        #CUOTAS
+        cuotas = tk.Label(frame4, text ='NÚMERO DE CUOTAS').grid(column=0, row=10,sticky=W,pady=3, padx= 20)
+    
+        num_cuotas= tk.DoubleVar()
+        num_cuotas= tk.Entry(frame4,width=15)
+        num_cuotas.grid(column=1, row=10,sticky=W,pady=3, padx= 0)
+        
+        #FECHA DE DESEMBOLSO
+        desembolso = tk.Label(frame4, text ='FECHA DE DESEMBOLSO').grid(column=0, row=12,sticky=W,pady=3, padx= 20)
+        
+        fecha= DateEntry(frame4,width=12,background='darkblue',foreground='white',borderwidth=2)
+        fecha.grid(column=1, row=12,sticky=W,pady=3, padx= 0)
+        
+        
+        #ETIQUETA
+        frame5 = Frame(pant2)
+        frame5.grid(column=0, row=14, sticky=W)
+        
+        #BOTON CRONOGRAMA
+        cronograma= tk.Button(frame5, text='CRONOGRAMA',bg="sky blue",foreground='black',
+                           font = ("Cambria", 12),width=15,command= lambda:[cronograma_efec()])
+        cronograma.grid(column=0, row=12, pady=10,  padx=400,sticky=W)
+     
+        #BOTON EXPORTAR A PDF
+        pdf= tk.Button(frame5, text='EXPORTAR PDF',bg="sky blue",foreground='black',
+                           font = ("Cambria", 10),width=15,command=lambda:[exportarPDF(),cronograma_efec()])
+        pdf.grid(column=0, row=20, pady=10,  padx=400,sticky=W)
+        
+        #TEA ANUAL
+        tea = tk.Label(frame4, text ='TASA EFECTIVA ANUAL TEA\t 50%').grid(column=2, row=6,sticky=W,pady=0, padx=50)
+        
+        #TASA PERIODO
+        tea_periodo1= tk.Label(frame4, text ="TASA EFECTIVA MENSUAL \t\t 4.17%").grid(column=2, row=8,sticky=W,pady=0, padx=50)
+    
+        tea_periodo2= tk.Label(frame4, text ="TASA EFECTIVA SEMANAL \t\t 1.04%").grid(column=2, row=10,sticky=W,pady=0, padx=50)
+        #ATRAS
+        atras1= tk.Button(frame5, text='ATRAS',bg="sky blue",foreground='black',
+                           font = ("Cambria", 8),width=15,command =pantalla_raiz)
+        atras1.grid(column=0, row=20, pady=10,  padx=20,sticky=W)
+        
+        #CERRAR
+        cerrar1= tk.Button(frame5, text='SALIR',bg="sky blue",foreground='black',
+                           font = ("Cambria", 8),width=15,command =cerrar_pantalla2)
+        cerrar1.grid(column=0, row=22, pady=10,  padx=20,sticky=W)
+      
+                 
+        pant2.mainloop()
+        
+    #PANTALLA 3 HIPOTECARIO INMUEBLE
+    
+    #VARIABLE DE RESTA
+    
+    def pantalla3():
+        #CERRAR
+        def cerrar_pantalla3():
+            pant3.destroy()
+       
+        def pantalla_raiz():
+            pant3.destroy()
+            pantalla1_principal()
+            
+        pant.destroy()
+            
+        pant3=tk.Tk()
+        pant3.title("SIMULADOR DE PRÉSTAMO HIPOTECARIO")
+        pant3.geometry("700x700+500+10")
+        
+        tk.Label(text ="SIMULADOR DE PRÉSTAMO HIPOTECARIO",font = ('Arial',12)).grid(column=0,row=3,sticky=W,pady=5, padx= 20)
+        
+        data = [("Nro","FECHA", "SALDO INI.","AMORT.","INTERÉS", "CUOTA","SALDO FIN.")]
+        
+        def resta_monto():
+            global calculo1
+            calculo= float(valor.get()) - float(cuota.get())
+            calculo1 =calculo
+            #MONTO TOTAL DE PRÉSTAMO
+            total= tk.Label(frame6, text ='MONTO DE PRÉSTAMO TOTAL').grid(column=0,row=18,sticky=W,pady=3,padx=20)
+            total= tk.Label(frame6, text =calculo).grid(column=1,row=18,sticky=W,pady=3,padx=20)   
+        #CRONOGRAMA
+    
+        def cronograma_efec():
+            tea_Mueble= 0.5 
+            tea_M_M= ((1+(tea_Mueble/1))**(1/12))-1
+            tea_M_S= ((1+(tea_M_M/1))**(1/4))-1
+        
+            cuota_Const1=[]
+            cuota_2decimales=cuota_Const1
+            
+            
+            #CUOTA
+            cuota_Const1.clear()
+            if tipo_periodo.get()=="MENSUAL":
+                tea_escogida=tea_M_M
+                cuota_Const= calculo1*((((1 + tea_M_M)**float(num_cuotas.get()))*tea_M_M)
+                                                / (((1 + tea_M_M)**float(num_cuotas.get())) - 1))
+                cuota_Const1.append(cuota_Const)
+                cuot = tk.Label(frame6, text ='CUOTA DE PAGO').grid(column=0, row=16,sticky=W,pady=3, padx= 20)
+                cuot = tk.Label(frame6, text =round(cuota_Const,2)).grid(column=1, row=16,sticky=W,pady=3, padx= 20)
+                d1=0
+                
+            if tipo_periodo.get()!="MENSUAL":
+                tea_escogida=tea_M_S
+                cuota_Const= calculo1*((((1 + tea_M_S)**float(num_cuotas.get()))*tea_M_S)
+                                                / (((1 + tea_M_S)**float(num_cuotas.get())) - 1))
+                cuota_Const1.append(cuota_Const)
+                cuot = tk.Label(frame6, text ='CUOTA DE PAGO').grid(column=0, row=16,sticky=W,pady=3, padx= 20)
+                cuot = tk.Label(frame6, text = round(cuota_Const,2)).grid(column=1, row=16,sticky=W,pady=3, padx= 20)
+                d1=1
+            #CRONOGRAMA
+            long= int(num_cuotas.get()) #MÁXIMO 15 POR EL TAMAÑO DE LA INTERFAZ
+            cuota_2decimales=round(cuota_Const1[0],2)
+            
+            cuota_num= round(cuota_Const1[0],50)
+            saldoini= calculo1
+        
+            tabla = ttk.Treeview(frame7,columns=("FECHA", "SALDO1","AMORTIZACIÓN","INTERÉS", "CUOTA","SALDO2"),height =15)
+           
+            for i in range(long):
+                
+                interes1= round(tea_escogida * saldoini,4) 
+                
+                amort= round(cuota_num - interes1,2)
+                
+                if d1==0:
+                    d = datetime.datetime.strptime(fecha.get( ),"%m/%d/%y")
+                    d2 = d + dateutil.relativedelta.relativedelta(months=i+1)
+                if d1==1:
+                    d = datetime.datetime.strptime(fecha.get( ),"%m/%d/%y")
+                    d2 = d + dateutil.relativedelta.relativedelta(weeks=i+1)
+                
+                saldofin= round(saldoini - amort,0)
+                
+                tabla.insert("",END, text=i+1,values=(d2,saldoini,amort,interes1,cuota_2decimales,saldofin))
+                
+                ######
+                def grouper(iterable, n):
+                    args = [iter(iterable)] * n
+                    return itertools.zip_longest(*args)
+                def export_to_pdf(data):
+                    c = canvas.Canvas("REPORTE_SIMULADOR.pdf", pagesize=A4)
+                    w, h = A4
+                    max_rows_per_page = 45
+                    # Margin.
+                    x_offset = 40
+                    y_offset = 145
+                    # Space between rows.
+                    padding = 15
+                    
+                    xlist = [x + x_offset for x in [0,30,150,230,310,390,460,530]]
+                    ylist = [h - y_offset - i*padding for i in range(max_rows_per_page + 1)]
+                    
+                    x = datetime.datetime.now()
+                    y=x.strftime("%x")
+                    z=x.strftime("%X")
+                    for rows in grouper(data, max_rows_per_page):
+                        c.drawString(40, h - 20, f"{y} {z}")
+                        c.drawString(240, h - 30, "BANCO CONFINAZA")
+                        c.drawString(120, h - 45, "El banco en donde el bolsillo de nuestros clientes es lo más importante")
+                        c.drawString(200, h - 70, "CRONOGRAMA DE CUOTAS DE PAGO")
+                        c.drawString(40, h - 90, "Tipo de Crédito")
+                        c.drawString(140, h - 90, ": Crédito Hipotecario")
+                        c.drawString(40, h - 105, "Tipo de Cuota")
+                        c.drawString(140, h - 105, ": Cuotas iguales")
+                        c.drawString(40, h - 120, "Monto")
+                        c.drawString(140, h - 120, f": {calculo1}")
+                        c.drawString(40, h - 135, "Cuota por periodo")
+                        c.drawString(140, h - 135, f": {cuota_2decimales}")
+                        rows = tuple(filter(bool, rows))
+                        c.grid(xlist, ylist[:len(rows) + 1])
+                        for y, row in zip(ylist[:-1], rows):
+                            for x, cell in zip(xlist, row):
+                                c.drawString(x + 2, y - padding + 3, str(cell))    
+                        c.showPage()
+                    
+                    c.save()
+                    
+                data.append((i+1,d2,saldoini,amort,interes1,cuota_2decimales,saldofin)) ## INSERTA A TABLA PDF
+                     
+                saldoini= round(saldoini-amort, 2)
+                                   
+            tabla.heading("#0",text="Nro")
+            tabla.column("#0",width=60) 
+            tabla.heading("FECHA",text="FECHA")#2
+            tabla.column("FECHA",width=68)
+            tabla.heading("SALDO1",text="SALDO INICIAL")#3
+            tabla.column("SALDO1",width=100)
+            tabla.heading("AMORTIZACIÓN",text="AMORTIZACIÓN")#4
+            tabla.column("AMORTIZACIÓN",width=100)
+            tabla.heading("INTERÉS",text="INTERÉS")#5
+            tabla.column("INTERÉS",width=100)
+            tabla.heading("CUOTA",text="CUOTA")#6
+            tabla.column("CUOTA",width=100)
+            tabla.heading("SALDO2",text="SALDO FINAL")#7
+            tabla.column("SALDO2",width=100)
+            
+            tabla.grid(column=0, row=16, sticky=W,pady=3, padx=40)
+            
+            if e[0]==1:
+                export_to_pdf(data)
+            else:
+                pass
+            e[0]=8
+            data.clear()
+            data.append(("Nro","FECHA", "SALDO INI.","AMORT.","INTERÉS", "CUOTA","SALDO FIN."))
+        
+        #ETIQUETAS
+        frame6 = Frame(pant3)
+        frame6.grid(column=0, row=6, sticky=W)
+        
+        #VALOR DEL INNMUEBLE
+        monto = tk.Label(frame6, text ='VALOR DEL INMUEBLE').grid(column=0, row=6,sticky=W,pady=3, padx= 20)
+        
+        valor= tk.DoubleVar()
+        valor= tk.Entry(frame6,width=15)
+        valor.grid(column=1, row=6,sticky=W,pady=3, padx=0)
+        
+        #CUOTA INICIAL
+        inicial= tk.Label(frame6, text ='CUOTA INICIAL').grid(column=0, row=8,sticky=W,pady=3, padx= 20)
+        
+        cuota= tk.DoubleVar()
+        cuota= tk.Entry(frame6,width=15)
+        cuota.grid(column=1, row=8,sticky=W, pady=3, padx=0)
+     
+        #PERIODO
+        periodo=tk.Label(frame6,text="PERIODO DE PAGO").grid(column=0,row=10,sticky=W,pady=3,padx=20)
+        
+        periodo1= tk.StringVar()
+        tipo_periodo= ttk.Combobox(frame6,width=12, textvariable= periodo1)
+        tipo_periodo['values'] = ("MENSUAL", "SEMANAL")
+        tipo_periodo.grid(column=1, row=10,sticky=W,pady=3, padx= 0)
+        
+        #CUOTAS
+        cuotas = tk.Label(frame6, text ='NÚMERO DE CUOTAS').grid(column=0, row=12,sticky=W,pady=3, padx= 20)
+        
+        num_cuotas= tk.DoubleVar()
+        num_cuotas= tk.Entry(frame6,width=15)
+        num_cuotas.grid(column=1, row=12,sticky=W,pady=3, padx= 0)
+        
+        #DESEMBOLSO
+        desembolso = tk.Label(frame6, text ='FECHA DE DESEMBOLSO').grid(column=0, row=14,sticky=W,pady=3, padx= 20)
+        
+        fecha= DateEntry(frame6,width=12,background='darkblue',foreground='white',borderwidth=2)
+        fecha.grid(column=1, row=14,sticky=W,pady=3, padx= 0)   
+        
+        #BOTON DE MONTO TOTAL
+        aviso= tk.Label(frame6, text="Primero presione el boton MONTO\npara calcular el préstamo total real").grid(column=0, row=15,sticky=W,pady=0, padx=20)
+        monto_total= tk.Button(frame6, text='MONTO',bg="sky blue",foreground='black',font = ("Cambria", 8),
+                           width=10,command = resta_monto)
+        monto_total.grid(column=0,row=16,pady=3,padx=20,sticky=W)
+        #TEA ANUAL
+        tea = tk.Label(frame6, text ='TASA EFECTIVA ANUAL TEA\t 12%').grid(column=4, row=6,sticky=W,pady=0, padx=200)
+            
+        #TASA PERIODO
+        
+        tea_periodo1= tk.Label(frame6, text ="TASA EFECTIVA MENSUAL \t\t 1%").grid(column=4, row=8,sticky=W,pady=0, padx=200)
+    
+        tea_periodo2= tk.Label(frame6, text ="TASA EFECTIVA SEMANAL \t\t 0.25%").grid(column=4, row=10,sticky=W,pady=0, padx=200)
+    
+        #ETIQUETA
+        frame7 = Frame(pant3)
+        frame7.grid(column=0, row=18, sticky=W)
+           
+        #BOTON CRONOGRAMA
+        cronograma= tk.Button(frame6, text='CRONOGRAMA',bg="sky blue",foreground='black',
+                           font = ("Cambria", 12),width=15,command= lambda:[cronograma_efec()])
+        cronograma.grid(column=2, row=18, pady=0,  padx=50,sticky=W)
+     
+        #BOTON EXPORTAR A PDF
+        pdf= tk.Button(frame7, text='EXPORTAR PDF',bg="sky blue",foreground='black',
+                           font = ("Cambria", 10),width=15,command=lambda:[exportarPDF(),cronograma_efec()])
+        pdf.grid(column=0, row=18, pady=10,  padx=400,sticky=W)
+        
+        #TEA ANUAL
+        tea = tk.Label(frame6, text ='TASA EFECTIVA ANUAL TEA\t 50%').grid(column=2, row=6,sticky=W,pady=0, padx=50)
+        
+        #TASA PERIODO
+        tea_periodo1= tk.Label(frame6, text ="TASA EFECTIVA MENSUAL \t\t 4.17%").grid(column=2, row=8,sticky=W,pady=0, padx=50)
+    
+        tea_periodo2= tk.Label(frame6, text ="TASA EFECTIVA SEMANAL \t\t 1.04%").grid(column=2, row=10,sticky=W,pady=0, padx=50)
+        #ATRAS
+        atras1= tk.Button(frame7, text='ATRAS',bg="sky blue",foreground='black',
+                           font = ("Cambria", 8),width=15,command =pantalla_raiz)
+        atras1.grid(column=0, row=18, pady=10,  padx=20,sticky=W)
+        
+        #CERRAR
+        cerrar1= tk.Button(frame7, text='SALIR',bg="sky blue",foreground='black',
+                           font = ("Cambria", 8),width=15,command =cerrar_pantalla3)
+        cerrar1.grid(column=0, row=20, pady=10,  padx=20,sticky=W)
+        
+        pant3.mainloop()      
+        
+    
+    #PANTALLA 4 VEHÍCULO MUEBLE 
+    
+    def pantalla4():
+        #CERRAR
+        def cerrar_pantalla4():
+            pant4.destroy()
+      
+        def pantalla_raiz():
+            pant4.destroy()
+            pantalla1_principal()  
+      
+        pant.destroy()
+        
+        pant4=tk.Tk()
+        pant4.title("SIMULADOR DE PRÉSTAMO MUEBLE")
+        pant4.geometry("700x700+500+10")
+        
+        tk.Label(text ="SIMULADOR DE PRÉSTAMO VEHÍCULAR O MUEBLE",font = ('Arial',12)).grid(
+                column=0,row=3,sticky=W,pady=10, padx= 20)
+        
+        data = [("Nro","FECHA", "SALDO INI.","AMORT.","INTERÉS", "CUOTA","SALDO FIN.")]
+        
+        #CRONOGRAMA
+        def cronograma_efec():
+            tea_Mueble= 0.5 
+            tea_M_M= ((1+(tea_Mueble/1))**(1/12))-1
+            tea_M_S= ((1+(tea_M_M/1))**(1/4))-1
+        
+            cuota_Const1=[]
+            cuota_2decimales=cuota_Const1
+            
+            #CUOTA
+            cuota_Const1.clear()
+            if tipo_periodo.get()=="MENSUAL":
+                tea_escogida=tea_M_M
+                cuota_Const= float(monto1.get())*((((1 + tea_M_M)**float(num_cuotas.get()))*tea_M_M)
+                                                / (((1 + tea_M_M)**float(num_cuotas.get())) - 1))
+                cuota_Const1.append(cuota_Const)
+                cuot = tk.Label(frame4, text ='CUOTA DE PAGO').grid(column=0, row=16,sticky=W,pady=3, padx= 20)
+                cuot = tk.Label(frame4, text =round(cuota_Const,2)).grid(column=1, row=16,sticky=W,pady=3, padx= 20)
+                d1=0
+                
+            if tipo_periodo.get()!="MENSUAL":
+                tea_escogida=tea_M_S
+                cuota_Const= float(monto1.get())*((((1 + tea_M_S)**float(num_cuotas.get()))*tea_M_S)
+                                                / (((1 + tea_M_S)**float(num_cuotas.get())) - 1))
+                cuota_Const1.append(cuota_Const)
+                cuot = tk.Label(frame4, text ='CUOTA DE PAGO').grid(column=0, row=16,sticky=W,pady=3, padx= 20)
+                cuot = tk.Label(frame4, text = round(cuota_Const,2)).grid(column=1, row=16,sticky=W,pady=3, padx= 20)
+                d1=1
+            #CRONOGRAMA
+            long= int(num_cuotas.get()) #MÁXIMO 15 POR EL TAMAÑO DE LA INTERFAZ
+            cuota_2decimales=round(cuota_Const1[0],2)
+            
+            cuota_num= round(cuota_Const1[0],50)
+            saldoini= float(monto1.get())
+        
+            tabla = ttk.Treeview(frame5,columns=("FECHA", "SALDO1","AMORTIZACIÓN","INTERÉS", "CUOTA","SALDO2"),height =15)
+           
+            for i in range(long):
+                
+                interes1= round(tea_escogida * saldoini,4) 
+                
+                amort= round(cuota_num - interes1,2)
+                
+                if d1==0:
+                    d = datetime.datetime.strptime(fecha.get( ),"%m/%d/%y")
+                    d2 = d + dateutil.relativedelta.relativedelta(months=i+1)
+                if d1==1:
+                    d = datetime.datetime.strptime(fecha.get( ),"%m/%d/%y")
+                    d2 = d + dateutil.relativedelta.relativedelta(weeks=i+1)
+                
+                saldofin= round(saldoini - amort,0)
+                
+                tabla.insert("",END, text=i+1,values=(d2,saldoini,amort,interes1,cuota_2decimales,saldofin))
+                
+                ######
+                def grouper(iterable, n):
+                    args = [iter(iterable)] * n
+                    return itertools.zip_longest(*args)
+                def export_to_pdf(data):
+                    c = canvas.Canvas("REPORTE_SIMULADOR.pdf", pagesize=A4)
+                    w, h = A4
+                    max_rows_per_page = 45
+                    # Margin.
+                    x_offset = 40
+                    y_offset = 145
+                    # Space between rows.
+                    padding = 15
+                    
+                    xlist = [x + x_offset for x in [0,30,150,230,310,390,460,530]]
+                    ylist = [h - y_offset - i*padding for i in range(max_rows_per_page + 1)]
+                    
+                    x = datetime.datetime.now()
+                    y=x.strftime("%x")
+                    z=x.strftime("%X")
+                    for rows in grouper(data, max_rows_per_page):
+                        c.drawString(40, h - 20, f"{y} {z}")
+                        c.drawString(240, h - 30, "BANCO CONFINAZA")
+                        c.drawString(120, h - 45, "El banco en donde el bolsillo de nuestros clientes es lo más importante")
+                        c.drawString(200, h - 70, "CRONOGRAMA DE CUOTAS DE PAGO")
+                        c.drawString(40, h - 90, "Tipo de Crédito")
+                        c.drawString(140, h - 90, ": Crédito Vehicular (Mueble)")
+                        c.drawString(40, h - 105, "Tipo de Cuota")
+                        c.drawString(140, h - 105, ": Cuotas iguales")
+                        c.drawString(40, h - 120, "Monto")
+                        c.drawString(140, h - 120, f": {monto1.get()}")
+                        c.drawString(40, h - 135, "Cuota por periodo")
+                        c.drawString(140, h - 135, f": {cuota_2decimales}")
+                        rows = tuple(filter(bool, rows))
+                        c.grid(xlist, ylist[:len(rows) + 1])
+                        for y, row in zip(ylist[:-1], rows):
+                            for x, cell in zip(xlist, row):
+                                c.drawString(x + 2, y - padding + 3, str(cell))    
+                        c.showPage()
+                    
+                    c.save()
+                    
+                data.append((i+1,d2,saldoini,amort,interes1,cuota_2decimales,saldofin)) ## INSERTA A TABLA PDF
+                     
+                saldoini= round(saldoini-amort, 2)
+                                   
+            tabla.heading("#0",text="Nro")
+            tabla.column("#0",width=60) 
+            tabla.heading("FECHA",text="FECHA")#2
+            tabla.column("FECHA",width=68)
+            tabla.heading("SALDO1",text="SALDO INICIAL")#3
+            tabla.column("SALDO1",width=100)
+            tabla.heading("AMORTIZACIÓN",text="AMORTIZACIÓN")#4
+            tabla.column("AMORTIZACIÓN",width=100)
+            tabla.heading("INTERÉS",text="INTERÉS")#5
+            tabla.column("INTERÉS",width=100)
+            tabla.heading("CUOTA",text="CUOTA")#6
+            tabla.column("CUOTA",width=100)
+            tabla.heading("SALDO2",text="SALDO FINAL")#7
+            tabla.column("SALDO2",width=100)
+            
+            tabla.grid(column=0, row=16, sticky=W,pady=3, padx=40)
+            
+            if e[0]==1:
+                export_to_pdf(data)
+            else:
+                pass
+            e[0]=8
+            data.clear()
+            data.append(("Nro","FECHA", "SALDO INI.","AMORT.","INTERÉS", "CUOTA","SALDO FIN."))
+         
+        #ETIQUETAS
+        frame4 = Frame(pant4)
+        frame4.grid(column=0, row=6, sticky=W)
+        
+        #MONTO 
+        monto = tk.Label(frame4, text ='MONTO').grid(column=0, row=6,sticky=W,pady=3, padx= 20)
+    
+        monto1= tk.DoubleVar()
+        monto1= tk.Entry(frame4,width=15)
+        monto1.grid(column=1, row=6,sticky=W,pady=3, padx=0)
+        
+        #PERIODO
+        periodo= tk.Label(frame4, text ="PERIODO DE PAGO").grid(column=0,row=8,sticky=W,pady=3, padx= 20)
+        
+        periodo1= tk.StringVar()
+        tipo_periodo= ttk.Combobox(frame4,width=12, textvariable= periodo1)
+        tipo_periodo['values'] = ("MENSUAL", "SEMANAL")
+        tipo_periodo.grid(column=1, row=8,sticky=W,pady=3, padx= 0)
+        
+        #CUOTAS
+        cuotas = tk.Label(frame4, text ='NÚMERO DE CUOTAS').grid(column=0, row=10,sticky=W,pady=3, padx= 20)
+    
+        num_cuotas= tk.DoubleVar()
+        num_cuotas= tk.Entry(frame4,width=15)
+        num_cuotas.grid(column=1, row=10,sticky=W,pady=3, padx= 0)
+        
+        #FECHA DE DESEMBOLSO
+        desembolso = tk.Label(frame4, text ='FECHA DE DESEMBOLSO').grid(column=0, row=12,sticky=W,pady=3, padx= 20)
+        
+        fecha= DateEntry(frame4,width=12,background='darkblue',foreground='white',borderwidth=2)
+        fecha.grid(column=1, row=12,sticky=W,pady=3, padx= 0)
+        
+        
+        #ETIQUETA
+        frame5 = Frame(pant4)
+        frame5.grid(column=0, row=14, sticky=W)
+        
+        #BOTON CRONOGRAMA
+        cronograma= tk.Button(frame5, text='CRONOGRAMA',bg="sky blue",foreground='black',
+                           font = ("Cambria", 12),width=15,command= lambda:[cronograma_efec()])
+        cronograma.grid(column=0, row=12, pady=10,  padx=400,sticky=W)
+     
+        #BOTON EXPORTAR A PDF
+        pdf= tk.Button(frame5, text='EXPORTAR PDF',bg="sky blue",foreground='black',
+                           font = ("Cambria", 10),width=15,command=lambda:[exportarPDF(),cronograma_efec()])
+        pdf.grid(column=0, row=20, pady=10,  padx=400,sticky=W)
+        
+        #TEA ANUAL
+        tea = tk.Label(frame4, text ='TASA EFECTIVA ANUAL TEA\t 50%').grid(column=2, row=6,sticky=W,pady=0, padx=50)
+        
+        #TASA PERIODO
+        tea_periodo1= tk.Label(frame4, text ="TASA EFECTIVA MENSUAL \t\t 4.17%").grid(column=2, row=8,sticky=W,pady=0, padx=50)
+    
+        tea_periodo2= tk.Label(frame4, text ="TASA EFECTIVA SEMANAL \t\t 1.04%").grid(column=2, row=10,sticky=W,pady=0, padx=50)
+        #ATRAS
+        atras1= tk.Button(frame5, text='ATRAS',bg="sky blue",foreground='black',
+                           font = ("Cambria", 8),width=15,command =pantalla_raiz)
+        atras1.grid(column=0, row=20, pady=10,  padx=20,sticky=W)
+        
+        #CERRAR
+        cerrar1= tk.Button(frame5, text='SALIR',bg="sky blue",foreground='black',
+                           font = ("Cambria", 8),width=15,command =cerrar_pantalla4)
+        cerrar1.grid(column=0, row=22, pady=10,  padx=20,sticky=W)
+      
+                 
+        pant4.mainloop()
+        
+    #PANTALLA 1 PRINCIPAL
+    
+    #CERRAR
+    def cerrar_pantalla1():
+        pant.destroy()
+    
+    tk.Label(text ="   BIENVENIDO A SU SIMULADOR\n     DE PRÉSTAMO BANCARIO",
+          font = ('Arial',16)).grid(column=0,row=3,sticky=W,pady=10, padx= 20)
+    
+    #ETIQUETAS
+    tk.Label(text ="Primero eliga el tipo de moneda").grid(column=0,row=10,sticky=W,pady=10, padx= 20)  
+    
+    frame1 = Frame(pant)
+    frame1.grid(column=0, row=12, sticky=W)
+    
+    #TIPO DE MONEDA
+    moneda1= tk.Label(frame1, text ="TIPO DE MONEDA\t").grid(column=0,row=12,sticky=W,pady=0, padx= 20)
+    
+    moneda1= tk.StringVar()
+    moneda_tipo= ttk.Combobox(frame1,width=20,textvariable= moneda1)
+    moneda_tipo['values'] = ("SOLES","DÓLARES")
+    moneda_tipo.grid(column=1, row=12,sticky=W)
+    
+    Label(text ="Ahora, escoja el tipo de producto crediticio").grid(column=0,row=15,sticky=W,pady=10, padx= 20) 
+    
+    #TIPO DE PRODUCTO
+    frame2 = Frame(pant)
+    frame2.grid(column=0, row=18, sticky=W)
+    
+    producto= tk.Label(frame2, text ="TIPO DE PRODUCTO\t").grid(column=0,row=18,sticky=W,pady=0, padx= 20)
+        
+    producto1 = tk.StringVar()
+    prod_tipo = ttk.Combobox(frame2,width=20, textvariable= producto1)
+    prod_tipo['values'] = ("EFECTIVO", "HIPOTECARIO", "VEHÍCULO (MUEBLE)")
+    prod_tipo.grid(column=1, row=18,sticky=W)
+    
+    #BOTON DE SIGUIENTE A PANTALLA 2
+    frame3 = Frame(pant)
+    frame3.grid(column=0, row=35, sticky=W)
+    
+    siguiente1= tk.Label(frame3, text ="Presione siguiente para continuar").grid(column=0,
+                                                                              row=35,sticky=W,pady=10, padx= 20)
+    
+    siguiente = tk.Button(frame3, text='SIGUIENTE',bg="sky blue",
+                       foreground='black',font = ("Cambria", 10),width=15,command = definir_pantalla)
+    siguiente.grid(column=0, row=36, pady=0, padx= 130,sticky=E) 
+       
+    siguiente = tk.Button(frame3, text='SALIR',bg="sky blue",
+                       font = ("Cambria", 8),width=10,command =cerrar_pantalla1)
+    siguiente.grid(column=0, row=50, pady=50,  padx= 30,sticky=W)
+    
+    pant.mainloop()
+
+pantalla1_principal()
